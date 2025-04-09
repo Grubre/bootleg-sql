@@ -4,9 +4,6 @@ add_executable(${EXEC_NAME} main.cpp)
 
 target_link_libraries(${EXEC_NAME} Expected fmt)
 
-set(MAIN_FLAGS ${COMPILE_FLAGS})
-
-target_compile_options(${EXEC_NAME} PRIVATE ${MAIN_FLAGS})
 target_include_directories(${EXEC_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Used for visual studio project creation
