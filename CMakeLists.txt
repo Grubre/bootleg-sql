@@ -1,5 +1,16 @@
 cmake_minimum_required(VERSION 3.20)
 
+# antlr config variables
+# they can't be set in ./external/antlr/CMakeLists.txt cause then ./src/CMakeLists.txt doesn't see them
+set(ANTLR4_WITH_STATIC_CRT OFF) # using /MD flag for antlr4_runtime (for Visual C++ compilers only)
+set(ANTLR_BUILD_SHARED OFF)
+set(ANTLR_TAG 4.13.2)
+set(DISABLE_WARNINGS ON)
+set(ANTLR_BUILD_CPP_TESTS OFF)
+set(ANTLR4_ZIP_REPOSITORY https://github.com/antlr/antlr4/archive/refs/tags/4.13.2.zip)
+
+set(ANTLR_EXECUTABLE "${CMAKE_SOURCE_DIR}/build/antlr-${ANTLR_TAG}-complete.jar")
+
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 project(

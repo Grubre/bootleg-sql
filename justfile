@@ -8,7 +8,7 @@ default: run
 build BUILD_TYPE="Debug":
     mkdir -p {{BUILD_DIR}} && cd {{BUILD_DIR}} && \
     cmake -DCMAKE_BUILD_TYPE={{BUILD_TYPE}} .. && \
-    cmake --build . --config {{BUILD_TYPE}}
+    cmake --build . --config {{BUILD_TYPE}} --parallel $(nproc)
 
 run *ARGS: (build)
     ./build/src/{{EXEC_NAME}} {{ARGS}}

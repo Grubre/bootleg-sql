@@ -21,3 +21,25 @@ endif()
 # DOCTEST
 add_library(Doctest INTERFACE)
 target_include_directories(Doctest INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/doctest)
+
+# ANTLR4
+if(NOT EXISTS "${ANTLR_EXECUTABLE}")
+    file(
+        DOWNLOAD
+        "https://www.antlr.org/download/antlr-${ANTLR_TAG}-complete.jar"
+        "${ANTLR_EXECUTABLE}"
+    )
+endif()
+
+find_package(Java REQUIRED)
+message(STATUS "Found Java executable at: ${Java_JAVA_EXECUTABLE}")
+
+FetchContent_Declare(
+    antlr
+    GIT_REPOSITORY https://github.com/antlr/antlr4
+    GIT_TAG ${ANTLR_TAG}
+    SOURCE_SUBDIR "runtime/Cpp"
+    GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(antlr)
+include(${antlr_SOURCE_DIR}/runtime/Cpp/cmake/FindANTLR.cmake)

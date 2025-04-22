@@ -1,37 +1,24 @@
 set (EXEC_NAME "db")
+set (ANTLR_TARGET_NAME "Parser")
 
-# bison
-find_package(BISON REQUIRED)
-BISON_TARGET(Parser parser.y ${CMAKE_CURRENT_BINARY_DIR}/parser.cpp
-             DEFINES_FILE ${CMAKE_CURRENT_BINARY_DIR}/parser.hpp)
-
-# reflex
-add_custom_command(
-  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/lexer.cpp ${CMAKE_CURRENT_BINARY_DIR}/lexer.hpp
-  COMMAND reflex --bison -o ${CMAKE_CURRENT_BINARY_DIR}/lexer.cpp
-          --header-file=${CMAKE_CURRENT_BINARY_DIR}/lexer.hpp
-          ${CMAKE_CURRENT_SOURCE_DIR}/lexer.l
-  DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/lexer.l
-  COMMENT "Generating lexer.cpp and lexer.hpp with RE/flex"
-  VERBATIM
-)
-
-add_custom_target(LexerGen DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/lexer.cpp)
+antlr_target(${ANTLR_TARGET_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/grammar/Grammar.g4 BOTH VISITOR)
 
 add_executable(${EXEC_NAME}
   main.cpp
-  ${BISON_Parser_OUTPUTS}
-  ${CMAKE_CURRENT_BINARY_DIR}/lexer.cpp
+  ${ANTLR_${ANTLR_TARGET_NAME}_CXX_OUTPUTS}
 )
-
-add_dependencies(${EXEC_NAME} LexerGen)
 
 target_include_directories(${EXEC_NAME} PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${CMAKE_CURRENT_BINARY_DIR}
 )
 
-target_link_libraries(${EXEC_NAME} PRIVATE Expected fmt reflex)
+target_include_directories(${EXEC_NAME} PUBLIC
+    "${antlr_SOURCE_DIR}/runtime/Cpp/runtime/src"
+    ${ANTLR_${ANTLR_TARGET_NAME}_OUTPUT_DIR}
+)
+
+target_link_libraries(${EXEC_NAME} PRIVATE Expected fmt reflex antlr4_static)
 
 file(GLOB_RECURSE HEADER_FILES ${CMAKE_CURRENT_SOURCE_DIR}/*.hpp)
 file(GLOB_RECURSE SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
