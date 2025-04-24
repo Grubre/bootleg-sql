@@ -5,7 +5,7 @@ options { caseSensitive=false; }
 program : sql_stmt ;
 
 sql_stmt
-    : select_stmt SEMI
+    : select_stmt SEMI?
     ;
 
 // https://www.sqlite.org/lang_select.html
@@ -13,6 +13,7 @@ select_stmt
     : SELECT (DISTINCT | ALL)? result_column (COMMA result_column)* FROM table_or_subquery (COMMA table_or_subquery)*
     ;
 
+// https://sqlite.org/syntax/result-column.html
 result_column
     : expr (AS column_alias)?
     | STAR
