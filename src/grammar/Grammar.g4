@@ -1,6 +1,8 @@
 // based on diagrams from https://www.sqlite.org/lang.html
 grammar Grammar;
-options { caseSensitive=false; }
+options {
+    caseInsensitive = true;
+}
 
 program : sql_stmt ;
 
