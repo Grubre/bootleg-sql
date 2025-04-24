@@ -101,9 +101,21 @@ public:
         fail("Invalid result column value");
     }
 
+    // https://sqlite.org/syntax/table-or-subquery.html
     std::any visitTable_or_subquery(GrammarParser::Table_or_subqueryContext *ctx) override {
-        return TableOrSubquery{};
-        return visit(ctx->table_name());
+        auto table_or_subquery = NamedTable{
+            .table_name = std::any_cast<std::string>(visit(ctx->table_name())),
+            .schema_name = std::nullopt,
+            .alias = std::nullopt
+        };
+        if (ctx->schema_name()) {
+            table_or_subquery.schema_name = std::any_cast<std::string>(visit(ctx->schema_name()));
+        }
+        if (ctx->table_alias()) {
+            table_or_subquery.alias = std::any_cast<std::string>(visit(ctx->table_alias()));
+        }
+
+        return TableOrSubquery{table_or_subquery};
     }
 
     std::any visitExpr(GrammarParser::ExprContext *ctx) override {
@@ -111,6 +123,14 @@ public:
     }
 
     std::any visitColumn_alias(GrammarParser::Column_aliasContext *ctx) override {
+        return ctx->IDENTIFIER()->getText();
+    }
+
+    std::any visitSchema_name(GrammarParser::Schema_nameContext *ctx) override {
+        return ctx->IDENTIFIER()->getText();
+    }
+
+    std::any visitTable_alias(GrammarParser::Table_aliasContext *ctx) override {
         return ctx->IDENTIFIER()->getText();
     }
 

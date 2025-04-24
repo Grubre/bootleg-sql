@@ -8,7 +8,7 @@ sql_stmt
     : select_stmt SEMI?
     ;
 
-// https://www.sqlite.org/lang_select.html
+// TODO: Implement the rest of https://www.sqlite.org/lang_select.html
 select_stmt
     : SELECT (DISTINCT | ALL)? result_column (COMMA result_column)* FROM table_or_subquery (COMMA table_or_subquery)*
     ;
@@ -20,11 +20,21 @@ result_column
     | table_name DOT STAR
     ;
 
+// TODO: Implement the rest of https://sqlite.org/syntax/table-or-subquery.html
 table_or_subquery
-    : table_name
+    : (schema_name DOT)? table_name (AS table_alias)?
     ;
 
+// TODO: Implement the rest of https://sqlite.org/syntax/expr.html
 expr
+    : IDENTIFIER
+    ;
+
+table_alias
+    : IDENTIFIER
+    ;
+
+schema_name
     : IDENTIFIER
     ;
 

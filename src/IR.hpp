@@ -22,7 +22,9 @@ struct ExprColumn {
 using ResultColumn = std::variant<StarColumn, TableStarColumn, ExprColumn>;
 
 struct NamedTable {
-    std::string name;
+    std::string table_name;
+    std::optional<std::string> schema_name;
+    std::optional<std::string> alias;
 };
 using TableOrSubquery = std::variant<NamedTable>;
 

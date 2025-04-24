@@ -17,7 +17,10 @@ auto to_string(const ResultColumn& rc) -> std::string {
 
 auto to_string(const TableOrSubquery& ts) -> std::string {
     return std::visit(overloaded{
-        [](const NamedTable& nt) { return nt.name; }
+        [](const NamedTable& nt) {
+            if (nt.alias) return fmt::format("{}{} AS {}", *nt.schema_name, nt.table_name, *nt.alias);
+            return fmt::format("{}{}", *nt.schema_name, nt.table_name);
+        }
     }, ts);
 }
 
