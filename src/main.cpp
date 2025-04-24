@@ -5,6 +5,9 @@
 #include <optional>
 #include "expected.hpp"
 
+#include "IR.hpp"
+#include "printers.hpp"
+
 #include "GrammarLexer.h"
 #include "GrammarParser.h"
 #include "GrammarBaseVisitor.h"
@@ -41,36 +44,6 @@ template <typename... Args>
 [[noreturn]] void fail(fmt::format_string<Args...> fmtstr, Args&&... args) {
     throw SqlError{fmt::format(fmtstr, std::forward<Args>(args)...)};
 }
-
-enum class SelectModifier {
-    NONE,
-    DISTINCT,
-    ALL
-};
-
-struct Expr { std::string name; };
-
-// https://sqlite.org/syntax/result-column.html
-struct StarColumn { };
-struct TableStarColumn { std::string table_name; };
-struct ExprColumn {
-    Expr expr;
-    std::optional<std::string> alias;
-};
-using ResultColumn = std::variant<StarColumn, TableStarColumn, ExprColumn>;
-
-struct NamedTable {
-    std::string name;
-};
-using TableOrSubquery = std::variant<NamedTable>;
-
-struct SelectStmt {
-    SelectModifier modifier;
-    std::vector<ResultColumn> projections;
-    std::vector<TableOrSubquery> sources;
-};
-
-using Statement = std::variant<SelectStmt>;
 
 class SqlGrammarVisitor : public GrammarBaseVisitor {
 public:
@@ -170,6 +143,7 @@ int main(int argc, char** argv) {
     try {
         auto result_any = bytecode_generator.visit(tree);
         auto statement = std::any_cast<Statement>(result_any);
+        fmt::println("{}", to_string(statement));
     } catch(const SqlError& e) {
         fmt::println(stderr, "{}", e.what());
     }
