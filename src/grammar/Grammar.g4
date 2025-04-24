@@ -1,10 +1,11 @@
 // based on diagrams from https://www.sqlite.org/lang.html
 grammar Grammar;
+options { caseSensitive=false; }
 
-program : sql_stmt+;
+program : sql_stmt ;
 
 sql_stmt
-    : select_stmt
+    : select_stmt SEMI
     ;
 
 // https://www.sqlite.org/lang_select.html
@@ -42,17 +43,19 @@ fragment DIGIT      : [0-9]     ;
 fragment LETTER     : [a-zA-Z]  ;
 fragment ID_CHAR    : (LETTER | DIGIT | '_' | '$') ;
 
-IDENTIFIER
-    : LETTER ID_CHAR*
-    ;
-
 SELECT : 'SELECT';
 DISTINCT : 'DISTINCT';
 ALL : 'ALL';
 AS : 'AS';
+FROM : 'FROM';
 
 COMMA : ',';
 DOT : '.';
 STAR : '*';
+SEMI : ';';
+
+IDENTIFIER
+    : LETTER ID_CHAR*
+    ;
 
 WHITESPACE: [ \r\n\t]+ -> skip;

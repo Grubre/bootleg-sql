@@ -29,7 +29,7 @@ struct Instruction {
 };
 
 using SqlBytecodeProgram = std::vector<Instruction>;
-using ProgramOutput = std::vector<SqlBytecodeProgram>;
+using ProgramOutput = SqlBytecodeProgram;
 
 struct SqlError : std::runtime_error {
     using std::runtime_error::runtime_error;
@@ -46,31 +46,55 @@ enum class SelectModifier {
     ALL
 };
 
+struct ResultColumn{};
+struct TableOrSubquery{};
+
+struct SelectStmt {
+    SelectModifier modifier;
+    std::vector<ResultColumn> projections;
+    std::vector<TableOrSubquery> sources;
+};
+
+using Statement = std::variant<SelectStmt>;
+
 class SqlGrammarVisitor : public GrammarBaseVisitor {
 public:
     std::any visitProgram(GrammarParser::ProgramContext *ctx) override {
-        auto programs = std::vector<SqlBytecodeProgram>(ctx->children.size());
-
-        for (auto i = 0u; i < ctx->children.size(); i++) {
-            programs[i] = std::any_cast<SqlBytecodeProgram>(visit(ctx->children[i]));
-        }
-
-        return programs;
+        return visit(ctx->sql_stmt());
     }
 
     std::any visitSql_stmt(GrammarParser::Sql_stmtContext *ctx) override {
         if (ctx->select_stmt()) {
-            return visit(ctx->select_stmt());
+            return Statement{std::any_cast<SelectStmt>(visit(ctx->select_stmt()))};
         }
         fail("Invalid SQL statement '{}'", ctx->toString());
     }
 
     std::any visitSelect_stmt(GrammarParser::Select_stmtContext *ctx) override {
-        const auto modifier = ctx->ALL() ? SelectModifier::ALL : (ctx->DISTINCT() ? SelectModifier::DISTINCT : SelectModifier::NONE);
-        return nullptr;
+        const auto modifier =
+              ctx->ALL()      ? SelectModifier::ALL
+            : ctx->DISTINCT() ? SelectModifier::DISTINCT
+                              : SelectModifier::NONE;
+
+        auto projections = std::vector<ResultColumn>{};
+        projections.reserve(ctx->result_column().size());
+        for (auto* result_column : ctx->result_column())
+            projections.emplace_back(std::any_cast<ResultColumn>(visit(result_column)));
+
+        auto sources = std::vector<TableOrSubquery>{};
+        sources.reserve(ctx->table_or_subquery().size());
+        for (auto* table_or_subquery : ctx->table_or_subquery())
+            sources.emplace_back(std::any_cast<TableOrSubquery>(visit(table_or_subquery)));
+
+        return SelectStmt {
+            .modifier = modifier,
+            .projections = std::move(projections),
+            .sources = std::move(sources)
+        };
     }
 
     std::any visitResult_column(GrammarParser::Result_columnContext *ctx) override {
+        return ResultColumn{};
         if (ctx->expr()) {
             return visit(ctx->expr());
         }
@@ -78,50 +102,49 @@ public:
     }
 
     std::any visitTable_or_subquery(GrammarParser::Table_or_subqueryContext *ctx) override {
+        return TableOrSubquery{};
         return visit(ctx->table_name());
     }
 
     std::any visitExpr(GrammarParser::ExprContext *ctx) override {
-        return ctx->IDENTIFIER();
+        return ctx->IDENTIFIER()->getText();
     }
 
     std::any visitColumn_alias(GrammarParser::Column_aliasContext *ctx) override {
-        return ctx->IDENTIFIER();
+        return ctx->IDENTIFIER()->getText();
     }
 
     std::any visitTable_name(GrammarParser::Table_nameContext *ctx) override {
-        return ctx->IDENTIFIER();
+        return ctx->IDENTIFIER()->getText();
     }
 
     std::any visitColumn_name(GrammarParser::Column_nameContext *ctx) override {
-        return ctx->IDENTIFIER();
+        return ctx->IDENTIFIER()->getText();
     }
 };
 
-int main() {
-    std::string line;
+int main(int argc, char** argv) {
+    if (argc != 2) {
+        fmt::println("Usage: {} <input query>", argv[0]);
+        return 1;
+    }
+
+    std::string line = argv[1];
     SqlGrammarVisitor bytecode_generator;
 
-    fmt::print("> ");
-    while (std::getline(std::cin, line)) {
-        if (line.empty()) {
-            fmt::print("> ");
-            continue;
-        }
+    fmt::println("Input: {}", line);
 
-        antlr4::ANTLRInputStream input(line);
-        GrammarLexer lexer(&input);
-        antlr4::CommonTokenStream tokens(&lexer);
-        GrammarParser parser(&tokens);
-        antlr4::tree::ParseTree *tree = parser.program();
-        try {
-            auto result_any = bytecode_generator.visit(tree);
-            auto programs = std::any_cast<ProgramOutput>(result_any);
-        } catch(const SqlError& e) {
-            fmt::println(stderr, "{}", e.what());
-        }
+    antlr4::ANTLRInputStream input(line);
+    GrammarLexer lexer(&input);
+    antlr4::CommonTokenStream tokens(&lexer);
+    GrammarParser parser(&tokens);
+    antlr4::tree::ParseTree *tree = parser.program();
 
-        fmt::print("> ");
+    try {
+        auto result_any = bytecode_generator.visit(tree);
+        auto statement = std::any_cast<Statement>(result_any);
+    } catch(const SqlError& e) {
+        fmt::println(stderr, "{}", e.what());
     }
     return 0;
 }
