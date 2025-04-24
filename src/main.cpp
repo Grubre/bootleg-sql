@@ -1,6 +1,8 @@
+#include <any>
 #include <cmath>
 #include <fmt/base.h>
 #include <fmt/format.h>
+#include <optional>
 #include "expected.hpp"
 
 #include "GrammarLexer.h"
@@ -46,8 +48,21 @@ enum class SelectModifier {
     ALL
 };
 
-struct ResultColumn{};
-struct TableOrSubquery{};
+struct Expr { std::string name; };
+
+// https://sqlite.org/syntax/result-column.html
+struct StarColumn { };
+struct TableStarColumn { std::string table_name; };
+struct ExprColumn {
+    Expr expr;
+    std::optional<std::string> alias;
+};
+using ResultColumn = std::variant<StarColumn, TableStarColumn, ExprColumn>;
+
+struct NamedTable {
+    std::string name;
+};
+using TableOrSubquery = std::variant<NamedTable>;
 
 struct SelectStmt {
     SelectModifier modifier;
@@ -94,9 +109,21 @@ public:
     }
 
     std::any visitResult_column(GrammarParser::Result_columnContext *ctx) override {
-        return ResultColumn{};
+        if (ctx->table_name()) {
+            return ResultColumn{TableStarColumn {.table_name = std::any_cast<std::string>(visit(ctx->table_name()))}};
+        }
+        if (ctx->STAR()) {
+            return ResultColumn{StarColumn{}};
+        }
         if (ctx->expr()) {
-            return visit(ctx->expr());
+            std::optional<std::string> alias = std::nullopt;
+            if (ctx->column_alias()) {
+                alias = std::any_cast<std::string>(ctx->column_alias());
+            }
+            return ResultColumn{ExprColumn {
+                .expr = std::any_cast<Expr>(visit(ctx->expr())),
+                .alias = alias
+            }};
         }
         fail("Invalid result column value");
     }
@@ -107,7 +134,7 @@ public:
     }
 
     std::any visitExpr(GrammarParser::ExprContext *ctx) override {
-        return ctx->IDENTIFIER()->getText();
+        return Expr{ctx->IDENTIFIER()->getText()};
     }
 
     std::any visitColumn_alias(GrammarParser::Column_aliasContext *ctx) override {
