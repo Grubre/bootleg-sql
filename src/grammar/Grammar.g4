@@ -1,13 +1,43 @@
 // based on diagrams from https://www.sqlite.org/lang.html
+// https://github.com/antlr/grammars-v4/blob/master/sql/sqlite/SQLiteParser.g4
+// https://github.com/antlr/grammars-v4/blob/master/sql/sqlite/SQLiteLexer.g4
 grammar Grammar;
 options {
     caseInsensitive = true;
 }
 
-program : sql_stmt ;
+program : SEMI* sql_stmt SEMI* ;
 
 sql_stmt
-    : select_stmt SEMI?
+    : select_stmt
+    | create_table_stmt
+    ;
+
+// https://sqlite.org/lang_createtable.html
+create_table_stmt
+    : CREATE (TEMP | TEMPORARY)? TABLE (IF NOT EXISTS)? (schema_name DOT)? table_name ((AS select_stmt) | (LPAREN column_def (COMMA column_def)* RPAREN table_options?))
+    ;
+
+column_def : column_name type_name? column_constraint* ;
+
+type_name
+    : IDENTIFIER
+    ;
+
+// TODO: fully implement https://sqlite.org/syntax/column-constraint.html
+column_constraint
+    : NOT NULL conflict_clause
+    ;
+
+conflict_clause
+    : (ON CONFLICT (ROLLBACK | ABORT | FAIL | IGNORE | REPLACE))?
+    ;
+
+
+table_options
+    : WITHOUT ROWID
+    | STRICT
+    | COMMA table_options
     ;
 
 // TODO: Implement the rest of https://www.sqlite.org/lang_select.html
@@ -62,6 +92,26 @@ ALL : 'ALL';
 AS : 'AS';
 FROM : 'FROM';
 
+CREATE : 'CREATE';
+TEMP : 'TEMP';
+TEMPORARY : 'TEMPORARY';
+TABLE : 'TABLE';
+IF : 'IF';
+NOT : 'NOT';
+EXISTS : 'EXISTS';
+ON : 'ON';
+CONFLICT : 'CONFLICT';
+ROLLBACK : 'ROLLBACK';
+ABORT : 'ABORT';
+FAIL : 'FAIL';
+IGNORE : 'IGNORE';
+REPLACE : 'REPLACE';
+NULL : 'NULL';
+WITHOUT : 'WITHOUT';
+ROWID : 'ROWID';
+
+LPAREN : '(';
+RPAREN : ')';
 COMMA : ',';
 DOT : '.';
 STAR : '*';
