@@ -11,6 +11,30 @@ program : SEMI* sql_stmt SEMI* ;
 sql_stmt
     : select_stmt
     | create_table_stmt
+    | insert_stmt
+    ;
+
+// TODO: Fully implement https://sqlite.org/lang_insert.html
+insert_stmt
+    : with_clause? (REPLACE | (INSERT (OR confilct_resolution_method)?)) INTO (schema_name DOT)? table_name (AS table_alias)?
+        (LPAREN column_name (COMMA column_name)* RPAREN)?
+        ( (VALUES LPAREN expr (COMMA expr)* RPAREN)
+        | select_stmt
+        | (DEFAULT VALUES)
+        )
+    ;
+
+confilct_resolution_method
+    : (ABORT | FAIL | IGNORE | REPLACE | ROLLBACK)
+    ;
+
+with_clause
+    : WITH RECURSIVE? common_table_expression (COMMA common_table_expression)
+    ;
+
+// https://sqlite.org/syntax/common-table-expression.html
+common_table_expression
+    : table_name (LPAREN column_name (COMMA column_name)* RPAREN)? AS (NOT? MATERIALIZED)? LPAREN select_stmt RPAREN
     ;
 
 // https://sqlite.org/lang_createtable.html
@@ -30,7 +54,7 @@ column_constraint
     ;
 
 conflict_clause
-    : (ON CONFLICT (ROLLBACK | ABORT | FAIL | IGNORE | REPLACE))?
+    : (ON CONFLICT confilct_resolution_method)?
     ;
 
 
@@ -109,6 +133,16 @@ REPLACE : 'REPLACE';
 NULL : 'NULL';
 WITHOUT : 'WITHOUT';
 ROWID : 'ROWID';
+MATERIALIZED : 'MATERIALIZED';
+WITH : 'WITH';
+RECURSIVE : 'RECURSIVE';
+STRICT : 'STRICT';
+
+INSERT : 'INSERT';
+INTO : 'INTO';
+VALUES : 'VALUES';
+DEFAULT : 'DEFAULT';
+OR : 'OR';
 
 LPAREN : '(';
 RPAREN : ')';

@@ -58,7 +58,68 @@ public:
         if (ctx->create_table_stmt()) {
             return Statement{std::any_cast<CreateTableStmt>(visit(ctx->create_table_stmt()))};
         }
+        if (ctx->insert_stmt()) {
+            return Statement{std::any_cast<InsertStmt>(visit(ctx->insert_stmt()))};
+        }
         fail("Invalid SQL statement '{}'", ctx->getText());
+    }
+
+    std::any visitInsert_stmt(GrammarParser::Insert_stmtContext *ctx) override {
+        auto with_clause = std::optional<WithClause>{};
+        if (ctx->with_clause()) {
+            with_clause = std::any_cast<WithClause>(visit(ctx->with_clause()));
+        }
+
+        auto operation = InsertStmtOp{};
+        if (ctx->INSERT()) {
+            operation = InsertContainer{};
+            if (ctx->confilct_resolution_method()) {
+                std::get<InsertContainer>(operation).confilct_res_method =
+                    std::any_cast<ConflictResolutionMethod>(visit(ctx->confilct_resolution_method()));
+            }
+        } else if (ctx->REPLACE()) {
+            operation = ReplaceContainer {};
+        }
+
+        auto schema_name = std::optional<std::string>{};
+        if (ctx->schema_name()) { schema_name = std::any_cast<std::string>(visit(ctx->schema_name())); }
+        auto alias = std::optional<std::string>{};
+        if (ctx->table_alias()) { alias = std::any_cast<std::string>(visit(ctx->table_alias())); }
+        auto aliased_table = AliasedTable {
+            .table = Table {
+                .table_name = std::any_cast<TableName>(visit(ctx->table_name())),
+                .schema_name = std::move(schema_name)
+            },
+            .alias = std::move(alias)
+        };
+
+        auto column_names = std::vector<ColumnName>{};
+        column_names.reserve(ctx->column_name().size());
+        for (const auto& c : ctx->column_name()) {
+            column_names.push_back(std::any_cast<ColumnName>(visit(c)));
+        }
+
+        auto tuples = InsertedTuples{DefaultValues{}};
+        if (ctx->VALUES()) {
+            auto expressions = std::vector<Expr>{};
+            expressions.reserve(ctx->expr().size());
+            for (const auto& expr : ctx->expr()) {
+                expressions.push_back(std::any_cast<Expr>(visit(expr)));
+            }
+            tuples = InsertStmtValuesExpr{
+                .expressions = std::move(expressions)
+            };
+        } else if (ctx->select_stmt()) {
+            tuples = std::any_cast<SelectStmt>(visit(ctx->select_stmt()));
+        }
+
+        return InsertStmt {
+            .with_clause = std::move(with_clause),
+            .operation = std::move(operation),
+            .table = std::move(aliased_table),
+            .column_names = std::move(column_names),
+            .tuples = std::move(tuples)
+        };
     }
 
     std::any visitSelect_stmt(GrammarParser::Select_stmtContext *ctx) override {
@@ -108,7 +169,7 @@ public:
         }
 
         return CreateTableStmt {
-            .is_temporary = is_temporary,
+            .temporary = is_temporary,
             .if_not_exists_clause = if_not_exists_clause,
             .table = std::move(table),
             .column_definitions = std::move(column_definitions),
@@ -177,6 +238,49 @@ public:
         }
 
         return TableOrSubquery{table_or_subquery};
+    }
+
+    std::any visitCommon_table_expression(GrammarParser::Common_table_expressionContext *ctx) override {
+        auto column_names = std::vector<ColumnName>{};
+        column_names.reserve(ctx->column_name().size());
+        for (const auto& column_name : ctx->column_name()) {
+            column_names.push_back(std::any_cast<ColumnName>(visit(column_name)));
+        }
+
+        auto materliazed_specifier =
+              ctx->NOT()          ? MateralizedSpecifier::NOT_MATERIALIZED
+            : ctx->MATERIALIZED() ? MateralizedSpecifier::MATERLIAZED
+            : /* Not specified */   MateralizedSpecifier::NONE;
+
+        return CommonTableExpression {
+            .name = std::any_cast<TableName>(visit(ctx->table_name())),
+            .column_names = std::move(column_names),
+            .materliazed_specifier = materliazed_specifier,
+            .select_stmt = std::any_cast<SelectStmt>(visit(ctx->select_stmt()))
+        };
+    }
+
+    std::any visitWith_clause(GrammarParser::With_clauseContext *ctx) override {
+        auto common_table_expressions = std::vector<CommonTableExpression>{};
+        common_table_expressions.reserve(ctx->common_table_expression().size());
+        for (const auto& common_table_expression : ctx->common_table_expression()) {
+            common_table_expressions.push_back(std::any_cast<CommonTableExpression>(visit(common_table_expression)));
+        }
+
+        return WithClause {
+            .recursive = bool(ctx->RECURSIVE()),
+            .common_table_expressions = std::move(common_table_expressions)
+        };
+    }
+
+    std::any visitConfilct_resolution_method(GrammarParser::Confilct_resolution_methodContext *ctx) override {
+        if (ctx->ABORT()) return ConflictResolutionMethod::ABORT;
+        if (ctx->FAIL()) return ConflictResolutionMethod::FAIL;
+        if (ctx->IGNORE()) return ConflictResolutionMethod::IGNORE;
+        if (ctx->REPLACE()) return ConflictResolutionMethod::REPLACE;
+        if (ctx->ROLLBACK()) return ConflictResolutionMethod::ROLLBACK;
+
+        fail("Unknown resolution method {}", ctx->getText());
     }
 
     std::any visitExpr(GrammarParser::ExprContext *ctx) override {
