@@ -19,7 +19,7 @@ target_include_directories(${EXEC_NAME} PUBLIC
     ${ANTLR_${ANTLR_TARGET_NAME}_OUTPUT_DIR}
 )
 
-target_link_libraries(${EXEC_NAME} PRIVATE Expected fmt reflex antlr4_static)
+target_link_libraries(${EXEC_NAME} PRIVATE Expected fmt antlr4_static)
 
 file(GLOB_RECURSE HEADER_FILES ${CMAKE_CURRENT_SOURCE_DIR}/*.hpp)
 file(GLOB_RECURSE SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
