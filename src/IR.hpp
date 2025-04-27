@@ -21,12 +21,15 @@ struct ExprColumn {
 };
 using ResultColumn = std::variant<StarColumn, TableStarColumn, ExprColumn>;
 
-struct NamedTable {
+struct Table {
     std::string table_name;
     std::optional<std::string> schema_name;
+};
+struct AliasedTable {
+    Table table;
     std::optional<std::string> alias;
 };
-using TableOrSubquery = std::variant<NamedTable>;
+using TableOrSubquery = std::variant<AliasedTable>;
 
 struct SelectStmt {
     SelectModifier modifier;
@@ -34,5 +37,28 @@ struct SelectStmt {
     std::vector<TableOrSubquery> sources;
 };
 
-using Statement = std::variant<SelectStmt>;
+struct ColumnConstraint {
+
+};
+
+struct ColumnDef {
+    std::string column_name;
+    std::optional<std::string> type_name;
+    std::vector<ColumnConstraint> column_constraints{};
+};
+
+enum class TableOption {
+    WITHOUT_ROWID,
+    STRICT
+};
+
+struct CreateTableStmt {
+    bool is_temporary;
+    bool if_not_exists_clause;
+    Table table;
+    std::vector<ColumnDef> column_definitions;
+    std::vector<TableOption> table_options;
+};
+
+using Statement = std::variant<SelectStmt, CreateTableStmt>;
 
