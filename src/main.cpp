@@ -1,9 +1,9 @@
 #include <any>
 #include <cmath>
+#include <concepts>
 #include <fmt/base.h>
 #include <fmt/format.h>
 #include <optional>
-#include "expected.hpp"
 
 #include "IR.hpp"
 #include "printers.hpp"
@@ -93,21 +93,10 @@ public:
             .alias = std::move(alias)
         };
 
-        auto column_names = std::vector<ColumnName>{};
-        column_names.reserve(ctx->column_name().size());
-        for (const auto& c : ctx->column_name()) {
-            column_names.push_back(std::any_cast<ColumnName>(visit(c)));
-        }
-
         auto tuples = InsertedTuples{DefaultValues{}};
         if (ctx->VALUES()) {
-            auto expressions = std::vector<Expr>{};
-            expressions.reserve(ctx->expr().size());
-            for (const auto& expr : ctx->expr()) {
-                expressions.push_back(std::any_cast<Expr>(visit(expr)));
-            }
             tuples = InsertStmtValuesExpr{
-                .expressions = std::move(expressions)
+                .expressions = collect<Expr>(ctx->expr())
             };
         } else if (ctx->select_stmt()) {
             tuples = std::any_cast<SelectStmt>(visit(ctx->select_stmt()));
@@ -117,7 +106,7 @@ public:
             .with_clause = std::move(with_clause),
             .operation = std::move(operation),
             .table = std::move(aliased_table),
-            .column_names = std::move(column_names),
+            .column_names = collect<ColumnName>(ctx->column_name()),
             .tuples = std::move(tuples)
         };
     }
@@ -128,20 +117,10 @@ public:
             : ctx->DISTINCT() ? SelectModifier::DISTINCT
                               : SelectModifier::NONE;
 
-        auto projections = std::vector<ResultColumn>{};
-        projections.reserve(ctx->result_column().size());
-        for (auto* result_column : ctx->result_column())
-            projections.emplace_back(std::any_cast<ResultColumn>(visit(result_column)));
-
-        auto sources = std::vector<TableOrSubquery>{};
-        sources.reserve(ctx->table_or_subquery().size());
-        for (auto* table_or_subquery : ctx->table_or_subquery())
-            sources.emplace_back(std::any_cast<TableOrSubquery>(visit(table_or_subquery)));
-
         return SelectStmt {
             .modifier = modifier,
-            .projections = std::move(projections),
-            .sources = std::move(sources)
+            .projections = collect<ResultColumn>(ctx->result_column()),
+            .sources = collect<TableOrSubquery>(ctx->table_or_subquery())
         };
     }
 
@@ -159,20 +138,13 @@ public:
             .schema_name = schema_name_opt
         };
 
-        auto column_definitions = std::vector<ColumnDef>{};
-        column_definitions.reserve(ctx->column_def().size());
-
         // TODO: Both here and in the struct, parse the `AS select_stmt` variant (https://sqlite.org/lang_createtable.html)
-
-        for (const auto column_def : ctx->column_def()) {
-            column_definitions.push_back(std::any_cast<ColumnDef>(visit(column_def)));
-        }
 
         return CreateTableStmt {
             .temporary = is_temporary,
             .if_not_exists_clause = if_not_exists_clause,
             .table = std::move(table),
-            .column_definitions = std::move(column_definitions),
+            .column_definitions = collect<ColumnDef>(ctx->column_def()),
             .table_options = {}
         };
     }
@@ -183,16 +155,10 @@ public:
             type_name = std::any_cast<std::string>(visit(ctx->type_name()));
         }
 
-        auto column_constraints = std::vector<ColumnConstraint>{};
-        column_constraints.reserve(ctx->column_constraint().size());
-        for (const auto column_constraint : ctx->column_constraint()) {
-            column_constraints.push_back(std::any_cast<ColumnConstraint>(visit(column_constraint)));
-        }
-
         return ColumnDef {
             .column_name = std::any_cast<std::string>(visit(ctx->column_name())),
             .type_name = std::move(type_name),
-            .column_constraints = std::move(column_constraints)
+            .column_constraints = collect<ColumnConstraint>(ctx->column_constraint())
         };
     }
 
@@ -241,43 +207,31 @@ public:
     }
 
     std::any visitCommon_table_expression(GrammarParser::Common_table_expressionContext *ctx) override {
-        auto column_names = std::vector<ColumnName>{};
-        column_names.reserve(ctx->column_name().size());
-        for (const auto& column_name : ctx->column_name()) {
-            column_names.push_back(std::any_cast<ColumnName>(visit(column_name)));
-        }
-
-        auto materliazed_specifier =
+        const auto materliazed_specifier =
               ctx->NOT()          ? MateralizedSpecifier::NOT_MATERIALIZED
             : ctx->MATERIALIZED() ? MateralizedSpecifier::MATERLIAZED
             : /* Not specified */   MateralizedSpecifier::NONE;
 
         return CommonTableExpression {
             .name = std::any_cast<TableName>(visit(ctx->table_name())),
-            .column_names = std::move(column_names),
+            .column_names = collect<ColumnName>(ctx->column_name()),
             .materliazed_specifier = materliazed_specifier,
             .select_stmt = std::any_cast<SelectStmt>(visit(ctx->select_stmt()))
         };
     }
 
     std::any visitWith_clause(GrammarParser::With_clauseContext *ctx) override {
-        auto common_table_expressions = std::vector<CommonTableExpression>{};
-        common_table_expressions.reserve(ctx->common_table_expression().size());
-        for (const auto& common_table_expression : ctx->common_table_expression()) {
-            common_table_expressions.push_back(std::any_cast<CommonTableExpression>(visit(common_table_expression)));
-        }
-
         return WithClause {
             .recursive = bool(ctx->RECURSIVE()),
-            .common_table_expressions = std::move(common_table_expressions)
+            .common_table_expressions = collect<CommonTableExpression>(ctx->common_table_expression())
         };
     }
 
     std::any visitConfilct_resolution_method(GrammarParser::Confilct_resolution_methodContext *ctx) override {
-        if (ctx->ABORT()) return ConflictResolutionMethod::ABORT;
-        if (ctx->FAIL()) return ConflictResolutionMethod::FAIL;
-        if (ctx->IGNORE()) return ConflictResolutionMethod::IGNORE;
-        if (ctx->REPLACE()) return ConflictResolutionMethod::REPLACE;
+        if (ctx->ABORT())    return ConflictResolutionMethod::ABORT;
+        if (ctx->FAIL())     return ConflictResolutionMethod::FAIL;
+        if (ctx->IGNORE())   return ConflictResolutionMethod::IGNORE;
+        if (ctx->REPLACE())  return ConflictResolutionMethod::REPLACE;
         if (ctx->ROLLBACK()) return ConflictResolutionMethod::ROLLBACK;
 
         fail("Unknown resolution method {}", ctx->getText());
@@ -309,6 +263,20 @@ public:
 
     std::any visitColumn_name(GrammarParser::Column_nameContext *ctx) override {
         return ctx->IDENTIFIER()->getText();
+    }
+
+private:
+    // used to collect grammar constructs like "column_name (COMMA column_name)*" that antlr parses into vec
+    template <typename T, typename U>
+        requires std::derived_from<std::remove_pointer_t<U>, antlr4::ParserRuleContext>
+    auto collect(const std::vector<U>& grammar_expr) -> std::vector<T> {
+        auto vec = std::vector<T>{};
+        vec.reserve(grammar_expr.size());
+        for (const auto& e : grammar_expr) {
+            vec.push_back(std::any_cast<T>(visit(e)));
+        }
+
+        return vec;
     }
 };
 
