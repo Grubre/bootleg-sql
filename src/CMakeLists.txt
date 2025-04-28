@@ -6,6 +6,7 @@ antlr_target(${ANTLR_TARGET_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/grammar/Grammar.g4
 add_executable(${EXEC_NAME}
   main.cpp
   printers.cpp
+  IR.cpp
   ${ANTLR_${ANTLR_TARGET_NAME}_CXX_OUTPUTS}
 )
 
