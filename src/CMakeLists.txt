@@ -7,6 +7,7 @@ add_executable(${EXEC_NAME}
   main.cpp
   printers.cpp
   IR.cpp
+  bytecode_gen.cpp
   ${ANTLR_${ANTLR_TARGET_NAME}_CXX_OUTPUTS}
 )
 

@@ -10,31 +10,6 @@
 
 #include "GrammarLexer.h"
 #include "GrammarParser.h"
-#include "GrammarBaseVisitor.h"
-
-enum class Opcode {
-    NOOP,
-    HALT
-};
-enum class P4type {
-    I32,
-    I64,
-    F64,
-    STR,
-    BLOB
-};
-struct Instruction {
-    Opcode opcode;
-    std::int32_t P1;
-    std::int32_t P2;
-    std::int32_t P3;
-    void* P4;
-    P4type p4type;
-    std::uint16_t P5;
-};
-
-using SqlBytecodeProgram = std::vector<Instruction>;
-using ProgramOutput = SqlBytecodeProgram;
 
 int main(int argc, char** argv) {
     if (argc != 2) {

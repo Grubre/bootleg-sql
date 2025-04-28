@@ -2,7 +2,7 @@
 #include "IR.hpp"
 #include <fmt/format.h>
 #include <fmt/ranges.h>
-
+#include "common.hpp"
 
 auto conflict_method_to_string(ConflictResolutionMethod method) -> std::string {
     switch (method) {
